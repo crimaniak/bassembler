@@ -2,31 +2,7 @@
 
 mod common;
 
-use common::{Repo, Sandbox};
-
-/// A repository with one base commit tagged `v1`.
-fn repo(sb: &Sandbox, name: &str) -> Repo {
-    let repo = sb.repo(name);
-    repo.commit("base.txt", "base\n", "base");
-    repo.tag("v1");
-    repo
-}
-
-/// A repository where picking `PRJ-2` after `PRJ-1` conflicts in `f.txt`, because the unrelated
-/// middle commit changed the same line.
-fn conflicting_repo(sb: &Sandbox, name: &str) -> Repo {
-    let repo = repo(sb, name);
-    repo.commit("f.txt", "one\n", "PRJ-1: first");
-    repo.commit("f.txt", "two\n", "unrelated change");
-    repo.commit("f.txt", "three\n", "PRJ-2: third");
-    repo
-}
-
-fn args<'a>(extra: &[&'a str]) -> Vec<&'a str> {
-    let mut v = vec!["--base", "v1", "--target", "rel"];
-    v.extend_from_slice(extra);
-    v
-}
+use common::{Sandbox, args, conflicting_repo, repo};
 
 #[test]
 fn assembles_issues_in_list_order_across_projects() {

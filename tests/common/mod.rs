@@ -66,15 +66,15 @@ impl Sandbox {
     pub fn resolver_take_theirs(&self, file: &str) -> PathBuf {
         let unix = format!("git checkout --theirs -- {file}");
         let windows = format!("git checkout --theirs -- {file}\nexit /b %ERRORLEVEL%");
-        self.script("take-theirs", &unix, &windows)
+        self.resolver_script("take-theirs", &unix, &windows)
     }
 
     /// Writes a resolver that gives up.
     pub fn resolver_fail(&self) -> PathBuf {
-        self.script("fail", "exit 1", "exit /b 1")
+        self.resolver_script("fail", "exit 1", "exit /b 1")
     }
 
-    fn script(&self, name: &str, unix: &str, windows: &str) -> PathBuf {
+    pub fn resolver_script(&self, name: &str, unix: &str, windows: &str) -> PathBuf {
         if cfg!(windows) {
             let path = self.root.join(format!("{name}.bat"));
             let body = windows.replace('\n', "\r\n");
@@ -166,6 +166,17 @@ impl Repo {
         );
     }
 
+    /// Runs git and reports whether it succeeded, for commands that are expected to fail.
+    pub fn try_git(&self, args: &[&str]) -> bool {
+        let mut cmd = Command::new("git");
+        cmd.current_dir(&self.dir).args(args);
+        isolate(&mut cmd, &self.root);
+        cmd.output()
+            .expect("git must be installed")
+            .status
+            .success()
+    }
+
     pub fn tag(&self, name: &str) {
         self.git(&["tag", name]);
     }
@@ -209,4 +220,29 @@ pub struct Run {
     pub code: i32,
     pub stdout: String,
     pub stderr: String,
+}
+
+/// A repository with one base commit tagged `v1`.
+pub fn repo(sb: &Sandbox, name: &str) -> Repo {
+    let repo = sb.repo(name);
+    repo.commit("base.txt", "base\n", "base");
+    repo.tag("v1");
+    repo
+}
+
+/// A repository where picking `PRJ-2` after `PRJ-1` conflicts in `f.txt`, because the unrelated
+/// middle commit changed the same line.
+pub fn conflicting_repo(sb: &Sandbox, name: &str) -> Repo {
+    let repo = repo(sb, name);
+    repo.commit("f.txt", "one\n", "PRJ-1: first");
+    repo.commit("f.txt", "two\n", "unrelated change");
+    repo.commit("f.txt", "three\n", "PRJ-2: third");
+    repo
+}
+
+/// Command-line parameters for base `v1` and target `rel`, followed by `extra`.
+pub fn args<'a>(extra: &[&'a str]) -> Vec<&'a str> {
+    let mut v = vec!["--base", "v1", "--target", "rel"];
+    v.extend_from_slice(extra);
+    v
 }
