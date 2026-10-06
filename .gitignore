@@ -1,0 +1,12 @@
+/target
+
+# editor / IDE
+.project
+.idea/
+.vscode/
+*.swp
+
+# local run data
+*.log
+/bassembler.json
+/issues.txt
